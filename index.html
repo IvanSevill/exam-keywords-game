@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Keywords Game</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="top-controls">
+        <button id="helpBtn" class="icon-btn" aria-label="Help">❔</button>
+        <button id="langToggleBtn" class="icon-btn" aria-label="Language">🇹🇷</button>
+        <button id="themeToggleBtn" class="icon-btn" aria-label="Toggle theme">🌙</button>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 data-i18n="tut_title">Welcome to Active Recall Game!</h2>
+            <p data-i18n="tut_p1">This app helps you memorize your exam answers by forcing you to recall the keywords.</p>
+            
+            <div class="tut-section">
+                <strong data-i18n="tut_modes_title">Game Modes:</strong>
+                <ul>
+                    <li><b data-i18n="tut_mode_norm_title">Normal:</b> <span data-i18n="tut_mode_norm_desc">Type the full answer. The app will detect keywords as you type. You can't proceed until you find them all.</span></li>
+                    <li><b data-i18n="tut_mode_learn_title">Learning:</b> <span data-i18n="tut_mode_learn_desc">Like Normal, but gives you a hint (reveals a letter) every 3 seconds to help you when stuck.</span></li>
+                    <li><b data-i18n="tut_mode_hard_title">Fast (Hard):</b> <span data-i18n="tut_mode_hard_desc">No text area. Just type the exact keywords in individual boxes.</span></li>
+                    <li><b data-i18n="tut_mode_explore_title">Study Explorer:</b> <span data-i18n="tut_mode_explore_desc">Browse all questions, answers and keywords before playing. Great for reviewing.</span></li>
+                </ul>
+            </div>
+            
+            <button id="closeTutorialBtn" class="btn primary-btn full-width mt-4" data-i18n="tut_btn">Got it! Let's start</button>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <h1><span class="highlight-text">Active Recall</span> Exam Game</h1>
+            <p data-i18n="header_subtitle">Practice your answers effectively.</p>
+        </header>
+
+        <section id="setup-section" class="card fade-in">
+            <div id="file-status" class="status-text" style="text-align: center; margin-bottom: 1.5rem; font-weight: 600;">
+                <span data-i18n="status_searching">Looking for data...</span>
+            </div>
+
+            <div id="difficulty-selector-wrapper" class="hidden mt-4">
+                <label class="label-block" data-i18n="diff_label">Select difficulty:</label>
+                <div class="difficulty-options">
+                    <label class="diff-radio">
+                        <input type="radio" name="difficulty" value="normal" checked>
+                        <div class="diff-card">
+                            <h3 data-i18n="diff_norm_title">Normal</h3>
+                            <p data-i18n="diff_norm_desc">Write the full answer. Keywords are checked automatically.</p>
+                        </div>
+                    </label>
+                    <label class="diff-radio">
+                        <input type="radio" name="difficulty" value="learning">
+                        <div class="diff-card">
+                            <h3 data-i18n="diff_learn_title">Learning</h3>
+                            <p data-i18n="diff_learn_desc">Same as Normal, but reveals letters automatically as hints.</p>
+                        </div>
+                    </label>
+                    <label class="diff-radio">
+                        <input type="radio" name="difficulty" value="hard">
+                        <div class="diff-card">
+                            <h3 data-i18n="diff_hard_title">Fast (Hard)</h3>
+                            <p data-i18n="diff_hard_desc">Only write the exact keywords. No filler text.</p>
+                        </div>
+                    </label>
+                    <label class="diff-radio">
+                        <input type="radio" name="difficulty" value="explore">
+                        <div class="diff-card">
+                            <h3 data-i18n="explore_title">Study Explorer</h3>
+                            <p data-i18n="explore_desc">View all questions, answers, and keywords to study before playing.</p>
+                        </div>
+                    </label>
+                </div>
+                <button id="startBtn" class="btn primary-btn mt-4 full-width" style="padding: 1.2rem; font-size: 1.2rem;" data-i18n="start_btn">Start</button>
+            </div>
+
+            <!-- History Section -->
+            <div id="history-section" class="mt-4 pt-4" style="border-top: 1px solid var(--border);">
+                <h3 style="margin-bottom: 1rem; color: var(--text-main);" data-i18n="history_title">Session History</h3>
+                <div id="history-container" class="history-list scrollbar-hidden">
+                    <!-- History items via JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Explorer Section -->
+        <section id="explorer-section" class="hidden fade-in">
+            <button id="backToMenuBtn" class="btn secondary-btn" data-i18n="back_menu_btn">⬅ Back to Menu</button>
+            <h2 class="mt-4" data-i18n="explorer_title">Study Explorer</h2>
+            <div id="explorer-list" class="explorer-grid mt-4">
+                <!-- Explorer items populated via JS -->
+            </div>
+        </section>
+
+        <section id="game-section" class="hidden fade-in">
+            <div class="progress-bar-container">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+            <div class="game-header">
+                <div>
+                    <span id="difficulty-badge" class="badge"></span>
+                    <span id="question-counter" style="margin-left: 10px;"></span>
+                </div>
+                <button id="exitTestBtn" class="btn secondary-btn" style="padding: 0.4rem 0.8rem; font-size: 0.9rem;" data-i18n="exit_test_btn">Exit Test</button>
+            </div>
+
+            <div class="card question-card">
+                <h2 id="question-text"></h2>
+            </div>
+
+            <div class="keywords-panel">
+                <h3><span data-i18n="keywords_label">Keywords:</span> <span id="keywords-found-count">0</span>/<span id="keywords-total-count">0</span></h3>
+                <div id="keywords-container" class="keywords-grid">
+                    <!-- Keywords injected here -->
+                </div>
+            </div>
+
+            <!-- Cloze Text for Learning Mode -->
+            <div id="learning-cloze-container" class="hidden mt-4 cloze-panel ans"></div>
+
+            <!-- Single Input for Hard Mode -->
+            <div id="hard-mode-input-container" class="hidden mt-4">
+                <input type="text" id="hard-mode-input" class="hard-single-input" data-i18n-placeholder="hard_input_ph" placeholder="Type keyword and press Enter..." autocomplete="off">
+            </div>
+
+            <!-- Only visible in Normal/Learning Mode -->
+            <div id="normal-answer-section" class="answer-section mt-4">
+                <label for="user-answer" class="label-block" data-i18n="answer_label">Write your answer from memory:</label>
+                <textarea id="user-answer" rows="6" class="custom-textarea" data-i18n-placeholder="answer_placeholder"></textarea>
+            </div>
+
+            <div class="actions-group mt-4">
+                <button id="showAnswerBtn" class="btn secondary-btn" data-i18n="show_ans_btn">Show Full Answer</button>
+                <button id="nextQuestionBtn" class="btn primary-btn" disabled data-i18n="next_btn_locked">Next Question (Locked)</button>
+            </div>
+
+            <div id="full-answer-container" class="full-answer-panel hidden mt-4">
+                <h3 data-i18n="full_ans_title">Full Answer:</h3>
+                <div id="full-answer-text" class="full-answer-content"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- PapaParse para parsear CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
