@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Recall - Explorer</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/explorer.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="top-controls">
+        <button id="langToggleBtn" class="btn secondary-btn" style="padding: 0.5rem 0.8rem;">🇹🇷</button>
+        <button id="themeToggleBtn" class="btn secondary-btn" style="padding: 0.5rem 0.8rem;">🌙</button>
+    </div>
+
+    <div class="app-container">
+        <header style="margin-bottom: 2rem;">
+            <button onclick="window.location.href='index.html'" class="btn secondary-btn" data-i18n="back_menu_btn">⬅ Back</button>
+            <h1 class="mt-4" data-i18n="explorer_title">Study Explorer</h1>
+            <p data-i18n="explore_desc">Review all questions and keywords.</p>
+        </header>
+
+        <section id="explorer-section" class="fade-in">
+            <div id="explorer-list" class="explorer-grid scrollbar-hidden">
+                <!-- Populated via JS -->
+            </div>
+        </section>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="js/translations.js"></script>
+    <script src="js/core.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const data = await loadCSVData();
+                const list = document.getElementById('explorer-list');
+                
+                if (!data || data.length === 0) {
+                    list.innerHTML = "<p class='status-text' style='text-align:center;'>No data found in file.csv</p>";
+                    return;
+                }
+
+                const questions = data.map(row => {
+                    const rawClaves = row.highlights || '';
+                    const parts = rawClaves.split('@');
+                    const enK = (parts[0] || '').split('#').map(k => k.trim()).filter(k => k);
+                    const trK = (parts[1] || '').split('#').map(k => k.trim()).filter(k => k);
+                    
+                    let answerHtml = formatMarkdown(row.full_answer || "");
+                    
+                    // Highlight keywords
+                    enK.forEach((kw, i) => {
+                        try {
+                            const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(`\\b(${escaped})\\b`, 'gi');
+                            const tr = trK[i] ? ` (${trK[i]})` : '';
+                            answerHtml = answerHtml.split(kw).join(`<span class="cloze-blank found-cloze">${kw}${tr}</span>`);
+                        } catch(e) {}
+                    });
+
+                    return {
+                        q: row.question || "No Question",
+                        aHtml: answerHtml,
+                        keywords: enK.map((k, i) => ({ en: k, tr: trK[i] || '' }))
+                    };
+                }).filter(q => q.q);
+
+                console.log("Explorer Questions:", questions);
+
+                list.innerHTML = questions.map((q, idx) => `
+                <div class="explorer-item fade-in" style="animation-delay: ${idx * 0.05}s">
+                    <h3 data-q-num="Q${idx + 1}">${q.q}</h3>
+                    <div class="ans">${q.aHtml}</div>
+                    <div class="kw-list">
+                        ${q.keywords.map(k => `<span class="kw-badge">${k.en}${k.tr ? ` (${k.tr})` : ''}</span>`).join('')}
+                    </div>
+                </div>
+            `).join('');
+            } catch (e) {
+                console.error("Explorer load failed:", e);
+                document.getElementById('explorer-list').innerHTML = `<p class='status-text' style='text-align:center;'>Error: ${e.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>
