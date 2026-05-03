@@ -1,47 +1,139 @@
-// Shared state and helpers
-let currentLang = localStorage.getItem('examLang') || 'en';
-let isDarkMode = localStorage.getItem('examTheme') !== 'light';
+// Global State
+let currentLang = localStorage.getItem('gameLang') || 'en';
+let theme = localStorage.getItem('gameTheme') || 'dark';
 
-function updateThemeUI() {
-    if (isDarkMode) {
-        document.documentElement.removeAttribute('data-theme');
-    } else {
-        document.documentElement.setAttribute('data-theme', 'light');
-    }
-}
+// Initial check
+document.documentElement.setAttribute('data-theme', theme);
 
-function toggleTheme() {
-    isDarkMode = !isDarkMode;
-    localStorage.setItem('examTheme', isDarkMode ? 'dark' : 'light');
-    updateThemeUI();
-    const btn = document.getElementById('themeToggleBtn');
-    if (btn) btn.textContent = isDarkMode ? '🌙' : '🌞';
-}
-
+// Translations
 function updateLanguageUI() {
-    const btn = document.getElementById('langToggleBtn');
-    if (btn) btn.textContent = currentLang === 'en' ? '🇹🇷' : '🇬🇧';
-    
-    const dict = translations[currentLang];
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const key = el.getAttribute('data-i18n');
-        if (dict[key]) el.innerHTML = dict[key];
+        if (translations[currentLang][key]) {
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                el.placeholder = translations[currentLang][key];
+            } else {
+                el.innerHTML = translations[currentLang][key];
+            }
+        }
     });
     
-    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-        const key = el.getAttribute('data-i18n-placeholder');
-        if (dict[key]) el.placeholder = dict[key];
-    });
+    // Update language toggle button text/icon
+    const langBtn = document.getElementById('langToggleBtn');
+    if (langBtn) langBtn.textContent = currentLang === 'en' ? '🇹🇷' : '🇬🇧';
 }
 
 function toggleLanguage() {
     currentLang = currentLang === 'en' ? 'tr' : 'en';
-    localStorage.setItem('examLang', currentLang);
+    localStorage.setItem('gameLang', currentLang);
     updateLanguageUI();
-    if (typeof loadHistory === 'function') loadHistory();
+    // Refresh page if needed or re-render components
+    if (window.location.pathname.includes('explorer.html') || window.location.pathname.includes('game.html')) {
+        location.reload();
+    }
 }
 
-// Formatting helpers
+// Theme
+function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('gameTheme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+}
+
+// Utility: Match word with spelling tolerance (85%)
+function isMatchWithTolerance(typed, target) {
+    if (!typed || !target) return false;
+    const s1 = typed.toLowerCase().trim();
+    const s2 = target.toLowerCase().trim();
+    
+    if (s1 === s2) return true;
+    
+    const distance = levenshtein(s1, s2);
+    const maxLength = Math.max(s1.length, s2.length);
+    const similarity = 1 - (distance / maxLength);
+    
+    return similarity >= 0.85;
+}
+
+function levenshtein(a, b) {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1,
+                    matrix[i][j - 1] + 1,
+                    matrix[i - 1][j] + 1
+                );
+            }
+        }
+    }
+    return matrix[b.length][a.length];
+}
+
+// Data Loading
+async function loadCSVData() {
+    return new Promise((resolve, reject) => {
+        // Cache busting: add unique timestamp to URL
+        const url = 'file.csv?v=' + new Date().getTime();
+        Papa.parse(url, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            delimiter: "|",
+            transformHeader: h => h.trim(),
+            transform: v => v.trim(),
+            complete: (results) => {
+                console.log("CSV Parsed:", results.data.length, "rows");
+                resolve(results.data);
+            },
+            error: (err) => {
+                console.error("PapaParse Error:", err);
+                reject(err);
+            }
+        });
+    });
+}
+
+// History
+function saveToHistory(mode, score, total) {
+    const history = JSON.parse(localStorage.getItem('examGameHistory') || '[]');
+    history.unshift({
+        date: new Date().toLocaleString(),
+        mode,
+        score,
+        total
+    });
+    localStorage.setItem('examGameHistory', JSON.stringify(history.slice(0, 10)));
+}
+
+function loadHistory() {
+    const container = document.getElementById('history-container');
+    if (!container) return;
+    
+    const history = JSON.parse(localStorage.getItem('examGameHistory') || '[]');
+    if (history.length === 0) {
+        container.innerHTML = `<p class="text-center py-4" data-i18n="no_history">No recent sessions.</p>`;
+        return;
+    }
+
+    container.innerHTML = history.map(item => `
+        <div class="history-item fade-in">
+            <div>
+                <span class="badge badge-${item.mode}">${item.mode.toUpperCase()}</span>
+                <small class="block mt-1 text-muted">${item.date}</small>
+            </div>
+            <div class="text-xl font-bold">${item.score}/${item.total}</div>
+        </div>
+    `).join('');
+}
+
+// Common Formatter
 function formatMarkdown(text) {
     if (!text) return "";
     return text.split('$').map(section => {
@@ -83,120 +175,12 @@ function formatMarkdown(text) {
     }).join('');
 }
 
-// Data Loading
-async function loadCSVData() {
-    try {
-        const response = await fetch('file.csv');
-        const csvText = await response.text();
-        return new Promise((resolve, reject) => {
-            Papa.parse(csvText, {
-                header: true,
-                skipEmptyLines: true,
-                delimiter: "|",
-                transformHeader: h => h.trim(),
-                transform: v => v.trim(),
-                complete: (results) => {
-                    console.log("CSV Parsed:", results.data);
-                    resolve(results.data);
-                },
-                error: (err) => {
-                    console.error("PapaParse Error:", err);
-                    reject(err);
-                }
-            });
-        });
-    } catch (err) {
-        console.error("Error loading CSV:", err);
-        return [];
-    }
-}
-
-// History
-function loadHistory() {
-    const container = document.getElementById('history-container');
-    if (!container) return;
-    const history = JSON.parse(localStorage.getItem('examKeywordsHistory') || '[]');
-    const dict = translations[currentLang];
-    
-    if (history.length === 0) {
-        container.innerHTML = `<p class="status-text" style="text-align:center; padding: 2rem; opacity:0.6;">${dict.history_empty}</p>`;
-        return;
-    }
-
-    container.innerHTML = history.slice(0, 10).map(session => {
-        const date = new Date(session.date).toLocaleString(currentLang === 'tr' ? 'tr-TR' : 'en-US', { dateStyle: 'short', timeStyle: 'short' });
-        return `
-            <div class="history-item">
-                <div>
-                    <strong>${session.mode.toUpperCase()}</strong>
-                    <div style="font-size:0.8rem; opacity:0.6;">${date}</div>
-                </div>
-                <div style="font-weight:700; color:var(--accent);">${session.score}/${session.total} ${dict.history_hits}</div>
-            </div>
-        `;
-    }).join('');
-}
-
-function saveToHistory(mode, score, total) {
-    if (total === 0) return;
-    const history = JSON.parse(localStorage.getItem('examKeywordsHistory') || '[]');
-    history.unshift({ date: new Date().toISOString(), mode, score, total });
-    localStorage.setItem('examKeywordsHistory', JSON.stringify(history));
-}
-
-// Levenshtein Distance for spelling tolerance
-function levenshtein(a, b) {
-    if(a.length === 0) return b.length;
-    if(b.length === 0) return a.length;
-    var matrix = [];
-    for(let i = 0; i <= b.length; i++){ matrix[i] = [i]; }
-    for(let j = 0; j <= a.length; j++){ matrix[0][j] = j; }
-    for(let i = 1; i <= b.length; i++){
-        for(let j = 1; j <= a.length; j++){
-            if(b.charAt(i-1) == a.charAt(j-1)){
-                matrix[i][j] = matrix[i-1][j-1];
-            } else {
-                matrix[i][j] = Math.min(matrix[i-1][j-1] + 1, Math.min(matrix[i][j-1] + 1, matrix[i-1][j] + 1));
-            }
-        }
-    }
-    return matrix[b.length][a.length];
-}
-
-function isMatchWithTolerance(userTextWithSpaces, kwOriginal) {
-    const norm = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    const kwNorm = norm(kwOriginal).trim();
-    const userNorm = norm(userTextWithSpaces);
-    const kwNoSpaces = kwNorm.replace(/[\s_]+/g, '');
-
-    const escaped = kwNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const wordBoundaryRx = new RegExp(`(^|[\\s,;.!?])(${escaped})([\\s,;.!?]|$)`);
-    if (wordBoundaryRx.test(userNorm)) return true;
-    
-    const maxErrors = Math.max(1, Math.floor(kwNoSpaces.length * 0.15));
-    const kwWords = kwNorm.split(/\s+/);
-    const userWords = userNorm.split(/\s+/).filter(w => w.length > 0);
-    
-    if (kwWords.length === 1) {
-        for (const w of userWords) {
-            if (levenshtein(w, kwNoSpaces) <= maxErrors) return true;
-        }
-    } else {
-        for (let i = 0; i <= userWords.length - kwWords.length; i++) {
-            const windowText = userWords.slice(i, i + kwWords.length).join('');
-            if (levenshtein(windowText, kwNoSpaces) <= maxErrors) return true;
-        }
-    }
-    return false;
-}
-
-// Init Globals
+// Global Event Listeners (if elements exist)
 document.addEventListener('DOMContentLoaded', () => {
-    updateThemeUI();
     updateLanguageUI();
-    const themeBtn = document.getElementById('themeToggleBtn');
-    if (themeBtn) themeBtn.onclick = toggleTheme;
-    const langBtn = document.getElementById('langToggleBtn');
-    if (langBtn) langBtn.onclick = toggleLanguage;
+    const lBtn = document.getElementById('langToggleBtn');
+    if (lBtn) lBtn.onclick = toggleLanguage;
+    
+    const tBtn = document.getElementById('themeToggleBtn');
+    if (tBtn) tBtn.onclick = toggleTheme;
 });
-
