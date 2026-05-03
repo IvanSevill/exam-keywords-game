@@ -80,7 +80,7 @@ const translations = {
         tut_btn: "Got it! Let's start",
         header_subtitle: "Practice your answers effectively.",
         status_searching: "Looking for data...",
-        status_loaded: "Data loaded successfully from data.js",
+        status_loaded: "Data loaded successfully",
         status_error: "❌ <b>Could not load data.</b><br><br>Make sure `data.js` exists and has the correct format.",
         diff_label: "Select difficulty:",
         diff_norm_title: "Normal",
@@ -127,7 +127,7 @@ const translations = {
         tut_btn: "Anladım! Başlayalım",
         header_subtitle: "Cevaplarınızı etkili bir şekilde pratik yapın.",
         status_searching: "Veri aranıyor...",
-        status_loaded: "Veriler data.js'den başarıyla yüklendi",
+        status_loaded: "Veriler başarıyla yüklendi",
         status_error: "❌ <b>Veri yüklenemedi.</b><br><br>`data.js` dosyasının var olduğundan ve doğru biçime sahip olduğundan emin olun.",
         diff_label: "Zorluk seçin:",
         diff_norm_title: "Normal",
@@ -319,29 +319,32 @@ updateLanguage();
 initTutorial();
 
 // --- AUTO LOAD DATA ---
-try {
-    if (typeof csvData !== 'undefined') {
-        const statusEl = document.getElementById('file-status');
-        statusEl.classList.add('hidden'); // Hide status on success
-        console.log(translations[currentLang].status_loaded);
+async function loadData() {
+    const statusEl = document.getElementById('file-status');
+    try {
+        const response = await fetch('file.csv');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        Papa.parse(csvData, {
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, {
             header: true,
             skipEmptyLines: true,
             delimiter: "|", // pipe-delimited (answers contain commas so auto-detect breaks)
             complete: function(results) {
+                console.log(translations[currentLang].status_loaded);
+                statusEl.classList.add('hidden'); // Hide status on success
                 processData(results.data);
             }
         });
-    } else {
-        throw new Error("csvData is not defined");
+    } catch (err) {
+        statusEl.innerHTML = translations[currentLang].status_error;
+        statusEl.style.color = "var(--error)";
+        console.error("Error loading data:", err);
     }
-} catch (err) {
-    const statusEl = document.getElementById('file-status');
-    statusEl.innerHTML = translations[currentLang].status_error;
-    statusEl.style.color = "var(--error)";
-    console.error("Error cargando datos:", err);
 }
+
+loadData();
 
 function processData(data) {
     if (data.length === 0) return;
