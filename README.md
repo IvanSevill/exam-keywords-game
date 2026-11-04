@@ -58,12 +58,11 @@ What is active recall? | Active recall is a study method where you retrieve fact
 | `#` | `highlights` | Separates keywords |
 | `@` | `highlights` | Comes before the optional translations, matched to keywords by position |
 
-Each keyword should appear in the answer word for word and start and end with a letter or digit. Otherwise it isn't blanked, but you still have to type it to continue. A row with no keywords is skipped.
+Each keyword should appear in the answer word for word. Otherwise it isn't blanked, but you still have to type it to continue. A row with no keywords is skipped.
 
 ## Status and limits
 
 This is a small personal study tool with no automated tests. I checked the steps above in Chromium.
 
 - The shipped `file.csv` holds 19 international economics exam questions. To use the game for another subject, replace it.
-- In 7 of those 19 questions, some keywords end in punctuation (such as `Terms of Trade:`), so they stay visible in the answer instead of being blanked.
-- The in-app help says to type the full answer in Normal mode, but only one keyword at a time is detected.
+- In one of those questions, the keyword `Voluntary Export Restraint:` doesn't match the answer's wording, so it has no blank but must still be typed. Use **Show Full Answer** if you get stuck there.

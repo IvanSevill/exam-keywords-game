@@ -145,9 +145,11 @@ function renderClozeText() {
     let text = q.respuesta;
     
     // 1. Replace keywords with safe placeholders (no '=' to avoid breaking formatMarkdown)
-    currentKeywords.forEach(kw => {
+    // Longest first, so "Corporate" does not split "1. Corporate Level (Company)".
+    [...currentKeywords].sort((a, b) => b.original.length - a.original.length).forEach(kw => {
         const escaped = kw.original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b(${escaped})\\b`, 'gi');
+        // Lookarounds, not \b: \b never matches after punctuation such as "Trade:" followed by a space.
+        const regex = new RegExp(`(?<!\\w)(${escaped})(?!\\w)`, 'gi');
         text = text.replace(regex, `@@KW${kw.id}@@`);
     });
 
